@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+                             http://maven.apache.org/xsd/maven-4.0.0.xsd">
+
+    <modelVersion>4.0.0</modelVersion>
+
+    <!-- ===================================================================
+         Project coordinates
+         =================================================================== -->
+    <groupId>com.smartcampus</groupId>
+    <artifactId>smart-campus-api</artifactId>
+    <version>1.0.0</version>
+    <packaging>jar</packaging>
+
+    <name>Smart Campus Sensor API</name>
+    <description>
+        JAX-RS REST API (Jersey 3 + Grizzly) for managing campus rooms and
+        IoT sensors. Uses only in-memory storage (ConcurrentHashMap).
+        No Spring Boot — pure Jakarta EE / JAX-RS.
+    </description>
+
+    <!-- ===================================================================
+         Shared version properties — update here to upgrade the whole stack
+         =================================================================== -->
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- Jersey 3.x targets Jakarta EE 10 (jakarta.* namespace) -->
+        <jersey.version>3.1.3</jersey.version>
+        <!-- Grizzly HTTP server — embedded, no app-server needed -->
+        <grizzly.version>4.0.2</grizzly.version>
+        <!-- Jackson for JSON serialisation / deserialisation -->
+        <jackson.version>2.15.2</jackson.version>
+        <!-- JUnit 5 for unit tests -->
+        <junit.version>5.10.0</junit.version>
+    </properties>
+
+    <dependencies>
+
+        <!-- ===============================================================
+             Jersey Core — JAX-RS 3.1 reference implementation
+             Provides @Path, @GET, @POST, @DELETE, @Produces, @Consumes,
+             ExceptionMapper, ContainerRequestFilter, etc.
+             =============================================================== -->
+        <dependency>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>jersey-server</artifactId>
+            <version>${jersey.version}</version>
+        </dependency>
+
+        <!-- Jersey client (useful for integration tests) -->
+        <dependency>
+            <groupId>org.glassfish.jersey.core</groupId>
+            <artifactId>jersey-client</artifactId>
+            <version>${jersey.version}</version>
+        </dependency>
+
+        <!-- ===============================================================
+             Grizzly HTTP server — lightweight embedded server; lets us run
+             the API as a plain executable JAR (java -jar ...) without a
+             full application server such as Tomcat or WildFly.
+             =============================================================== -->
+        <dependency>
+            <groupId>org.glassfish.jersey.containers</groupId>
+            <artifactId>jersey-container-grizzly2-http</artifactId>
+            <version>${jersey.version}</version>
+        </dependency>
+
+        <!-- Grizzly NIO framework (pulled transitively but pinned for clarity) -->
+        <dependency>
+            <groupId>org.glassfish.grizzly</groupId>
+            <artifactId>grizzly-http-server</artifactId>
+            <version>${grizzly.version}</version>
+        </dependency>
+
+        <!-- ===============================================================
+             Jackson JSON provider for Jersey
+             Automatically serialises/deserialises Java POJOs to/from JSON
+             via @Produces(APPLICATION_JSON) and @Consumes(APPLICATION_JSON).
+             =============================================================== -->
+        <dependency>
+            <groupId>org.glassfish.jersey.media</groupId>
+            <artifactId>jersey-media-json-jackson</artifactId>
+            <version>${jersey.version}</version>
+        </dependency>
+
+        <!-- Jackson core libraries (pinned to avoid version drift) -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
+        </dependency>
+
+        <!-- ===============================================================
+             HK2 Dependency Injection — required for @Context injection
+             (UriInfo, HttpHeaders, etc.) to work inside resource classes.
+             =============================================================== -->
+        <dependency>
+            <groupId>org.glassfish.jersey.inject</groupId>
+            <artifactId>jersey-hk2</artifactId>
+            <version>${jersey.version}</version>
+        </dependency>
+
+        <!-- ===============================================================
+             JUnit 5 — unit and integration testing
+             =============================================================== -->
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+        <plugins>
+
+            <!-- Standard compiler plugin — enforce Java 17 source level -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.11.0</version>
+                <configuration>
+                    <source>17</source>
+                    <target>17</target>
+                </configuration>
+            </plugin>
+
+            <!-- ============================================================
+                 maven-shade-plugin — produces a single "fat JAR" containing
+                 all dependencies so the API can be launched with:
+                   java -jar target/smart-campus-api-1.0.0.jar
+                 ============================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <transformers>
+                                <!-- Set the entry-point for java -jar -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>com.smartcampus.Main</mainClass>
+                                </transformer>
+                                <!-- Merge service-loader files from all JARs (required by Jersey) -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <!-- Suppress the "dependency-reduced-pom.xml" from appearing in project root -->
+                            <outputDirectory>${project.build.directory}</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- JUnit 5 test runner -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <version>3.1.2</version>
+            </plugin>
+
+        </plugins>
+    </build>
+
+</project>
